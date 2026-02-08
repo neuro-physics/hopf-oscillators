@@ -85,16 +85,6 @@ or a smaller beta.
         get_args_get_input_matrices         = lambda *fnames: dict(input_txt_file_FL=fnames[0],input_txt_file_FN=fnames[1],input_txt_file_FMRI=fnames[2])
 
 
-    #print('************************************')
-    #print('************************************')
-    #print('************************************ NEEDS TO BE IMPLEMENTED:')
-    #print('************************************')
-    #print('************************************ 1. coupling delays read from the Fiber Length matrix')
-    #print('************************************ 2. Check the return of escape times (weird values in the test simulations)')
-    #print('************************************ 3. Pk seems not to be picking all first escape times? Only 1 node escaped?')
-    #print('************************************')
-    #print('************************************')
-
     if simParam.testrun:
         simParam.ntrials = 1
         fl_all           = [fl_all[0]]
