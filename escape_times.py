@@ -44,6 +44,15 @@ and input connectomes provided either as text files or MATLAB (.mat) files.
 
 Escape times are measured based on a user-defined amplitude threshold of the complex oscillator state.
 
+::: TO-DO LIST :::
+1. add functionality to "record only after all oscillators escaped":
+    this can be done with a new integrator function,
+    but requires restructuring the delayed variables
+    (we can make a list of the delayed variables to save memory, similarly to the neighbor list)
+2. measure escape times during integration simulation to save memory.
+    This can be integrated with the above functionality
+
+
 ::: INPUT DATA FORMAT :::
                                        
 Each input file (`txt` or `mat`) is supposed to have a subject code in its name.
@@ -60,6 +69,7 @@ Each matrix must be identified by their corresponding
 parameters: `input_var_FL`, `input_var_FN`, `input_var_FMRI`.
 
 ::: WARNING :::
+                                       
 The system is solved with a simple Euler-Maruyama method,
 so the result is very sensitive to dt.
 
