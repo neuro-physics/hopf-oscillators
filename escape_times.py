@@ -38,11 +38,26 @@ def RunSim(cmd_line = ''):
     parser   = argparse.ArgumentParser(description="""
 Simulate stochastic Hopf oscillators coupled through an empirical connectome,
 with heterogeneous local dynamics, time delays derived from tract lengths, and additive noise.
-                                       
+
 The simulation supports multiple trials, configurable dynamical and noise parameters,
 and input connectomes provided either as text files or MATLAB (.mat) files.
-                                       
+
 Escape times are measured based on a user-defined amplitude threshold of the complex oscillator state.
+
+::: INPUT DATA FORMAT :::
+                                       
+Each input file (`txt` or `mat`) is supposed to have a subject code in its name.
+The code for controls is `ddd_d`, and the code for patients is `0ddd_d` (d = digit).
+The same code must be on the corresponding files for each matrix.
+
+For example, for `txt` input, we can have `FL_301_1.txt`,
+`FN_301_1.txt`, `FMRI_301_1.txt` as the names of the input files containing the fiber length (FL),
+fiber number (FN) and rs-fMRI (FMRI) matrices for the control subject identified by code `301_1`.
+
+Similarly for MAT-file inputs, but then only one file with all matrices inside is needed.
+E.g., `mats_301_1.mat` can be the file containing all matrices control subject `301_1`.
+Each matrix must be identified by their corresponding
+parameters: `input_var_FL`, `input_var_FN`, `input_var_FMRI`.
 
 ::: WARNING :::
 The system is solved with a simple Euler-Maruyama method,
