@@ -45,6 +45,7 @@ and input connectomes provided either as text files or MATLAB (.mat) files.
 Escape times are measured based on a user-defined amplitude threshold of the complex oscillator state.
 
 ::: TO-DO LIST :::
+                                       
 1. add functionality to "record only after all oscillators escaped":
     this can be done with a new integrator function,
     but requires restructuring the delayed variables
@@ -67,6 +68,7 @@ Similarly for MAT-file inputs, but then only one file with all matrices inside i
 E.g., `mats_301_1.mat` can be the file containing all matrices control subject `301_1`.
 Each matrix must be identified by their corresponding
 parameters: `input_var_FL`, `input_var_FN`, `input_var_FMRI`.
+
 
 ::: WARNING :::
                                        
