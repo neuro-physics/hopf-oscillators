@@ -59,7 +59,7 @@ def add_simulation_params(parser,**defaultValues):
 
     # simulation flags
     parser.add_argument('-normalizecoupling'     , required=False, action='store_true', default=False, help='If true, divides coupling beta by the number of inputs for each node')
-    parser.add_argument('-savealltau'            , required=False, action='store_true', default=False, help='If true, saves all escape times of all trials for all nodes (MEMORY = 8*n_subjects*ntrials*N_nodes ~ 150MB for 60 subjects, 1000 trials and 306 nodes)')
+    parser.add_argument('-savealltau'            , required=False, action='store_true', default=False, help='If true, saves all escape times of all trials for all nodes (OUTPUT MEMORY = 2*8*n_subjects*ntrials*N_nodes ~ 300MB; SIMULATION MEMORY = 2*8*n_subjects*(tTotal+max_delay)/dt) ~ 60 MB; for 60 subjects, 1000 trials and 306 nodes;')
     parser.add_argument('-writeOnRun'            , required=False, action='store_true', default=False, help='[[ NOT IMPLEMENTED ]] If true, writes output during run')
     parser.add_argument('-testrun'               , required=False, action='store_true', default=False, help='If true, runs only 1 subject and saves the Z variable for debug purpose (e.g., for checking if network activity diverged)')
 

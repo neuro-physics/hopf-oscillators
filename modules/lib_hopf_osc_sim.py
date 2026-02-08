@@ -1,5 +1,6 @@
 import numpy as np
 from numba import types, njit
+from numba.typed import List
 
 def get_param_sample(p_mean,p_range,N):
     return p_mean + p_range * np.random.uniform(-1, 1, N)
@@ -25,7 +26,7 @@ def get_coupling_matrix(beta,R,C,normalize_weight=False):
     return np.ascontiguousarray(K.astype(np.complex128))
 
 @njit(types.complex128[:](types.complex128[:], types.complex128[:]))
-def f_numba(z, Complex_Param_i):
+def f_Hopf_vec(z, Complex_Param_i):
     """The local dynamics function f(z_i) for complex z."""
     abs_sq = np.abs(z)**2
     abs_quad = abs_sq**2
@@ -81,7 +82,7 @@ def integrate_Hopf_oscillators_const_delay(
         
         # --- END CORRECTED COUPLING TERM CALCULATION ---
         
-        drift_term = f_numba(Z_current, Complex_Param_i) + coupling_term
+        drift_term = f_Hopf_vec(Z_current, Complex_Param_i) + coupling_term
 
         # Noise Term
         dW_R = np.random.normal(0.0, 1.0, N) * sqrt_dt_complex_noise 
@@ -99,6 +100,54 @@ def integrate_Hopf_oscillators_const_delay(
     return Z
 
 
+_type_neighbor_index_list        = types.int64[:]
+_type_delay_list                 = types.int64[:]
+_type_coupling_strength_list     = types.complex128[:]
+_type_all_neighbors_index_list   = types.ListType(_type_neighbor_index_list)
+_type_all_delays_list            = types.ListType(_type_delay_list)
+_type_all_coupling_strength_list = types.ListType(_type_coupling_strength_list)
+_type_get_coupling_lists_output  = types.Tuple((_type_all_neighbors_index_list,_type_all_coupling_strength_list,_type_all_delays_list))
+@njit(_type_get_coupling_lists_output(types.complex128[:,:],types.int64[:,:]))
+def get_coupling_lists(K,T):
+    neigh_list = List.empty_list(_type_neighbor_index_list)
+    coupl_list = List.empty_list(_type_coupling_strength_list)
+    delay_list = List.empty_list(_type_delay_list)
+    N = K.shape[0]
+    for i in range(N):
+        j_lst = np.nonzero(K[i,:])[0]
+        K_val = np.zeros(j_lst.size,types.complex128)
+        t_val = np.zeros(j_lst.size,types.int64)
+        for m,j in enumerate(j_lst):
+            K_val[m] = K[i,j]
+            t_val[m] = T[i,j]
+        neigh_list.append(j_lst)
+        coupl_list.append(K_val)
+        delay_list.append(t_val)
+    return neigh_list,coupl_list,delay_list
+
+@njit(types.complex128(types.complex128, types.complex128))
+def f_Hopf(Z, a):
+    """The local dynamics function f(z_i) for complex z."""
+    Z2 = np.abs(Z)**2
+    Z4 = Z2**2
+    return a * Z + 2.0 * Z * Z2 - Z * Z4
+
+@njit(types.complex128())
+def random_normal_complex():
+    return np.random.normal(0.0,1.0) + 1j*np.random.normal(0.0,1.0)
+
+@njit(types.complex128(types.int64,types.complex128[:,:],_type_neighbor_index_list,_type_coupling_strength_list,_type_delay_list))
+def sum_oscillator_delayed_input(t,Z,neigh_lst,coupl_lst,delay_lst):
+    S = 0.0 + 0.0j
+    for j,K,T in zip(neigh_lst,coupl_lst,delay_lst):
+        S += K*Z[t-T,j]
+    return S
+
+
+@njit(types.complex128(types.complex128,types.complex128,types.complex128,types.complex128))
+def oscillator_step(Z,sum_j_Kij_Zj_delay,sum_j_Kij,a):
+    return f_Hopf(Z,a) + sum_j_Kij_Zj_delay - Z*sum_j_Kij
+
 @njit(
     types.complex128[:,:](
         types.float64, types.float64, types.float64, types.int64,
@@ -107,64 +156,34 @@ def integrate_Hopf_oscillators_const_delay(
         types.int64[:,:]           # T_ij in *time steps*
     )
 )
-def integrate_Hopf_oscillators(
-    T, dt, alpha, N,
-    Z_initial, Complex_Param_i,
-    K_matrix_ij, T_steps_ij
-):
+def integrate_Hopf_oscillators(tTotal, dt, alpha, N, a, Z_initial, J_R_C_matrix, T_delay_matrix):
+    # noise dt
+    alpha_sqrt_dt = alpha * np.sqrt(dt / 2.0)
 
-    Nt = types.int64(T / dt)
+    # delay buffer size
+    T_max = np.max(T_delay_matrix) + 1
 
-    # --- delay buffer size ---
-    max_delay = np.max(T_steps_ij)
-    buffer_size = max_delay + 1
+    # creating oscillators and setting IC
+    Nt = T_max + types.int64(tTotal / dt) # total number of time steps
+    t0 = T_max
 
-    sqrt_dt_complex_noise = np.sqrt(dt / 2.0)
-
-    # --- storage ---
-    Z = np.zeros((Nt, N), dtype=np.complex128)
-    Z[0, :] = Z_initial
-
-    history_buffer = np.zeros((buffer_size, N), dtype=np.complex128)
-    for k in range(buffer_size):
-        history_buffer[k, :] = Z_initial
-
-    history_index = 0
-
-    # --- row sums of K ---
-    row_sums_K = np.sum(K_matrix_ij, axis=1)
+    # setting up the previous states all equal to the IC
+    Z  = np.zeros((Nt, N), dtype=np.complex128)
+    for t in range(T_max):
+        Z[t, :] = Z_initial
+    
+    # sum of coupling
+    # Coupling(t) = J * (    sum_j[ Kij * Zj(t-tij)   -     Kij * Zi(t)     ]    )
+    #             = J * (    sum_j[ Kij * Zj(t-tij) ] - Zi(t) * sum_j [ Kij ]     )
+    # so we make sum_j [ Kij ] in advance
+    sum_j_Kij                     = np.sum(J_R_C_matrix, axis=1)
+    neigh_lst,coupl_lst,delay_lst = get_coupling_lists(J_R_C_matrix,T_delay_matrix)
 
     # --- time loop ---
-    for t in range(Nt - 1):
-        Z_current = Z[t, :]
-
-        # ----- delayed coupling term -----
-        delayed_input = np.zeros(N, dtype=np.complex128)
-
+    for t in range(t0,Nt):
         for i in range(N):
-            acc = 0.0 + 0.0j
-            for j in range(N):
-                delay_ij = T_steps_ij[i, j]
-                buf_idx = (history_index - delay_ij) % buffer_size
-                acc += K_matrix_ij[i, j] * history_buffer[buf_idx, j]
-            delayed_input[i] = acc
+            # Euler–Maruyama
+            sum_j_Kij_Zj_delay = sum_oscillator_delayed_input(t-1,Z,neigh_lst[i],coupl_lst[i],delay_lst[i])
+            Z[t,i]             = Z[t-1,i] + dt * oscillator_step(Z[t-1,i],sum_j_Kij_Zj_delay,sum_j_Kij[i],a[i]) + alpha_sqrt_dt * random_normal_complex()
 
-        current_dependent_term = Z_current * row_sums_K
-        coupling_term = delayed_input - current_dependent_term
-        # ----------------------------------
-
-        drift_term = f_numba(Z_current, Complex_Param_i) + coupling_term
-
-        # noise
-        dW_R = np.random.normal(0.0, 1.0, N) * sqrt_dt_complex_noise
-        dW_I = np.random.normal(0.0, 1.0, N) * sqrt_dt_complex_noise
-        noise_term = alpha * (dW_R + 1j * dW_I)
-
-        # Euler–Maruyama
-        Z[t + 1, :] = Z_current + drift_term * dt + noise_term
-
-        # update history
-        history_index = (history_index + 1) % buffer_size
-        history_buffer[history_index, :] = Z[t + 1, :]
-
-    return Z
+    return Z[t0:,:]

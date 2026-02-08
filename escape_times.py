@@ -119,7 +119,7 @@ or a smaller beta.
             trial_per = (n+1)/simParam.ntrials
             print(f'     -> trial {n+1} / {simParam.ntrials} ({100*trial_per:.1f}%) -- completed total: {100*subj_per*trial_per:.1f}%')
             Z_initial = sim.get_IC(simParam.Z0,simParam.Z0_std,N)
-            Z         = sim.integrate_Hopf_oscillators(simParam.tTotal, simParam.dt, simParam.alpha, N, Z_initial=Z_initial, Complex_Param_i=a, K_matrix_ij=K, T_steps_ij=T)
+            Z         = sim.integrate_Hopf_oscillators(simParam.tTotal, simParam.dt, simParam.alpha, N, Z_initial=Z_initial, a=a, J_R_C_matrix=K, T_delay_matrix=T)
             tau       = esc.calc_escape_time(Z,Z_amp_threshold=simParam.Z_amp_escape,axis=1,dt=simParam.dt)
             k         = np.nanargmin(tau)
             tau_sum  += tau
