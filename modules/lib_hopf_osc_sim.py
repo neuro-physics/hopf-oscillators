@@ -11,94 +11,19 @@ def get_const_param(lambda_i,omega_i):
 def get_IC(Z0,Z0_std,N):
     return (np.random.normal(Z0.real, Z0_std, N) + 1j * np.random.normal(Z0.imag, Z0_std, N))
 
-def get_coupling_matrix(beta,R,C,normalize_weight=False):
+def get_coupling_matrix(J,R,C,normalize_weight=False):
     """
-    beta -> coupling strength
-    R    -> structural coupling matrix (number of fibers)
-    C    -> functional coupling matrix (e.g., rs-fMRI correlation matrix)
+    J                -> coupling strength
+    R                -> structural coupling matrix (number of fibers)
+    C                -> functional coupling matrix (e.g., rs-fMRI correlation matrix)
     normalize_weight -> if set, then beta -> beta(i)=beta/n(i), where n(i) is the number of inputs of node i
     """
-    K = beta * (R * C) # element-wise R * C
+    K = J * (R * C) # element-wise R * C
     if normalize_weight:
         for i in range(K.shape[0]):
             n_inp  = len(np.nonzero(K[i,:])[0])
             K[i,:] = K[i,:] / n_inp
     return np.ascontiguousarray(K.astype(np.complex128))
-
-@njit(types.complex128[:](types.complex128[:], types.complex128[:]))
-def f_Hopf_vec(z, Complex_Param_i):
-    """The local dynamics function f(z_i) for complex z."""
-    abs_sq = np.abs(z)**2
-    abs_quad = abs_sq**2
-    return Complex_Param_i * z + 2.0 * z * abs_sq - z * abs_quad
-
-@njit(
-    types.complex128[:,:](
-        types.float64, types.float64, types.float64, types.int64, types.float64,
-        types.complex128[:], types.complex128[:], types.complex128[:,:] # K_matrix_ij type changed here
-    )
-)
-def integrate_Hopf_oscillators_const_delay(
-    T, dt, alpha, N, delay_steps_float,
-    Z_initial, Complex_Param_i, K_matrix_ij
-):
-    # --- Pre-calculations inside the function ---
-    Nt = types.int64(T / dt)
-    delay_steps = types.int64(delay_steps_float)
-    buffer_size = delay_steps + 1
-    
-    sqrt_dt_complex_noise = np.sqrt(dt / 2.0)
-    
-    # Storage and history buffer initialization (Numba-compatible)
-    Z = np.zeros((Nt, N), dtype=np.complex128)
-    Z[0, :] = Z_initial
-    history_buffer = np.zeros((buffer_size, N), dtype=np.complex128)
-    for i in range(buffer_size):
-        history_buffer[i, :] = Z_initial
-    history_index = 0
-
-    # Pre-calculate the row sums of the coupling matrix K_ij
-    # This is Sum_j K_ij, which is constant throughout the simulation
-    # The sum of a complex matrix results in a complex vector (dtype=types.complex128)
-    row_sums_K = np.sum(K_matrix_ij, axis=1)
-
-    # --- Simulation Loop (Complex Euler-Maruyama Method) ---
-    for t in range(Nt - 1):
-        Z_delayed = history_buffer[history_index, :]
-        Z_current = Z[t, :]
-
-        # --- CORRECTED COUPLING TERM CALCULATION ---
-        
-        # 1. Delayed Input Term: Sum_j K_ij * z_j(t - tau)
-        # K_matrix_ij (types.complex128) @ Z_delayed (types.complex128) -> COMPATIBLE
-        delayed_input = K_matrix_ij @ Z_delayed
-        
-        # 2. Current Term: z_i(t) * Sum_j K_ij
-        # Z_current (types.complex128) * row_sums_K (types.complex128) -> COMPATIBLE
-        current_dependent_term = Z_current * row_sums_K
-        
-        # Total coupling term D_i = (Delayed Input) - (Current Term)
-        coupling_term = delayed_input - current_dependent_term
-        
-        # --- END CORRECTED COUPLING TERM CALCULATION ---
-        
-        drift_term = f_Hopf_vec(Z_current, Complex_Param_i) + coupling_term
-
-        # Noise Term
-        dW_R = np.random.normal(0.0, 1.0, N) * sqrt_dt_complex_noise 
-        dW_I = np.random.normal(0.0, 1.0, N) * sqrt_dt_complex_noise
-        dW_complex = dW_R + 1j * dW_I
-        noise_term = alpha * dW_complex
-        
-        # Euler-Maruyama Step
-        Z[t + 1, :] = Z_current + drift_term * dt + noise_term
-
-        # Update History Buffer
-        history_index = (history_index + 1) % buffer_size
-        history_buffer[history_index, :] = Z[t + 1, :]
-        
-    return Z
-
 
 _type_neighbor_index_list        = types.int64[:]
 _type_delay_list                 = types.int64[:]
@@ -109,6 +34,26 @@ _type_all_coupling_strength_list = types.ListType(_type_coupling_strength_list)
 _type_get_coupling_lists_output  = types.Tuple((_type_all_neighbors_index_list,_type_all_coupling_strength_list,_type_all_delays_list))
 @njit(_type_get_coupling_lists_output(types.complex128[:,:],types.int64[:,:]))
 def get_coupling_lists(K,T):
+    """
+    Construct neighbor, coupling strength, and delay lists from 
+    adjacency-like matrices.
+
+    Parameters
+    ----------
+    K : ndarray (complex128[:, :])
+        Coupling strength matrix where nonzero entries indicate 
+        coupling strengths between nodes.
+    T : ndarray (int64[:, :])
+        Delay matrix between connections.
+
+    Returns
+    -------
+    tuple
+        (neighbors_list, coupling_strengths_list, delays_list), where:
+        - neighbors_list: list of int64 arrays with neighbor indices
+        - coupling_strengths_list: list of complex128 arrays with coupling strength values
+        - delays_list: list of int64 arrays with delay values
+    """
     neigh_list = List.empty_list(_type_neighbor_index_list)
     coupl_list = List.empty_list(_type_coupling_strength_list)
     delay_list = List.empty_list(_type_delay_list)
@@ -187,3 +132,6 @@ def integrate_Hopf_oscillators(tTotal, dt, alpha, N, a, Z_initial, J_R_C_matrix,
             Z[t,i]             = Z[t-1,i] + dt * oscillator_step(Z[t-1,i],sum_j_Kij_Zj_delay,sum_j_Kij[i],a[i]) + alpha_sqrt_dt * random_normal_complex()
 
     return Z[t0:,:]
+
+def integrate_Hopf_oscillators_const_delay(tTotal, dt, alpha, N, T, a, Z_initial, J_R_C_coupling_matrix):
+    return integrate_Hopf_oscillators(tTotal, dt, alpha, N, a, Z_initial, J_R_C_coupling_matrix, (J_R_C_coupling_matrix>0.0).astype(np.int64)*np.full(J_R_C_coupling_matrix.shape,T,dtype=np.int64))
