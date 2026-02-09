@@ -91,6 +91,25 @@ def sum_oscillator_delayed_input(t,Z,neigh_lst,coupl_lst,delay_lst):
 
 @njit(types.complex128(types.complex128,types.complex128,types.complex128,types.complex128))
 def oscillator_step(Z,sum_j_Kij_Zj_delay,sum_j_Kij,a):
+    """
+    Compute one step of the Hopf oscillator update.
+
+    Parameters
+    ----------
+    Z : complex128
+        Current oscillator state.
+    sum_j_Kij_Zj_delay : complex128
+        Delayed coupling total input from neighbors.
+    sum_j_Kij : complex128
+        Sum of coupling strengths for this oscillator.
+    a : complex128
+        Oscillator parameter.
+
+    Returns
+    -------
+    complex128
+        Updated oscillator state increment.
+    """
     return f_Hopf(Z,a) + sum_j_Kij_Zj_delay - Z*sum_j_Kij
 
 @njit(
@@ -102,6 +121,33 @@ def oscillator_step(Z,sum_j_Kij_Zj_delay,sum_j_Kij,a):
     )
 )
 def integrate_Hopf_oscillators(tTotal, dt, alpha, N, a, Z_initial, J_R_C_matrix, T_delay_matrix):
+    """
+    Integrate a network of Hopf oscillators with delays and noise.
+
+    Parameters
+    ----------
+    tTotal : float64
+        Total simulation time.
+    dt : float64
+        Time step size.
+    alpha : float64
+        Noise strength parameter.
+    N : int64
+        Number of oscillators.
+    a : complex128[:]
+        Oscillator parameters.
+    Z_initial : complex128[:]
+        Initial states of oscillators.
+    J_R_C_matrix : complex128[:,:]
+        Coupling strength matrix.
+    T_delay_matrix : int64[:,:]
+        Delay matrix in time steps.
+
+    Returns
+    -------
+    ndarray (complex128[:, :])
+        Time evolution of oscillator states after initial delay buffer.
+    """
     # noise dt
     alpha_sqrt_dt = alpha * np.sqrt(dt / 2.0)
 
@@ -134,4 +180,31 @@ def integrate_Hopf_oscillators(tTotal, dt, alpha, N, a, Z_initial, J_R_C_matrix,
     return Z[t0:,:]
 
 def integrate_Hopf_oscillators_const_delay(tTotal, dt, alpha, N, T, a, Z_initial, J_R_C_coupling_matrix):
+    """
+    Integrate Hopf oscillators with a constant delay applied to all couplings.
+
+    Parameters
+    ----------
+    tTotal : float
+        Total simulation time.
+    dt : float
+        Time step size.
+    alpha : float
+        Noise strength parameter.
+    N : int
+        Number of oscillators.
+    T : int
+        Constant delay (in time steps).
+    a : complex128[:]
+        Oscillator parameters.
+    Z_initial : complex128[:]
+        Initial states of oscillators.
+    J_R_C_coupling_matrix : complex128[:,:]
+        Coupling strength matrix.
+
+    Returns
+    -------
+    ndarray (complex128[:, :])
+        Time evolution of oscillator states after initial delay buffer.
+    """
     return integrate_Hopf_oscillators(tTotal, dt, alpha, N, a, Z_initial, J_R_C_coupling_matrix, (J_R_C_coupling_matrix>0.0).astype(np.int64)*np.full(J_R_C_coupling_matrix.shape,T,dtype=np.int64))
