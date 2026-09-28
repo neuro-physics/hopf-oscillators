@@ -26,6 +26,8 @@ The code supports:
 python escape_times.py [options]
 ```
 
+For a step-by-step walkthrough with reproducible smoke-test inputs, parameter guidance, and plotting examples, see [TUTORIAL.md](./TUTORIAL.md).
+
 To see all available options:
 
 ```bash
@@ -41,8 +43,8 @@ python escape_times.py -h
 | Option | Description |
 |------|------------|
 | `-ntrials INT` | Number of trials to repeat the simulation |
-| `-tTrans FLOAT` | Transient time to discard before measurements (units: dt, **not implemented**) |
-| `-tTotal FLOAT` | Total simulation time (units: dt) |
+| `-tTrans FLOAT` | Transient duration to discard before measurements (**not implemented**) |
+| `-tTotal FLOAT` | Total simulation duration (model-time units) |
 | `-dt FLOAT` | Integration time step |
 | `-v_tract FLOAT` | Conduction speed along tracts |
 
