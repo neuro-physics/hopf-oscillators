@@ -29,8 +29,8 @@ HOW TO ADD A NEW SIMULATION PARAMETER
 
 def add_simulation_params(parser,**defaultValues):
     parser.add_argument('-ntrials'       , nargs=1, required=False, metavar='INT'  , type=int    , default=get_param_value('ntrials'       , defaultValues, [10])   , help='Number of trials to repeat the simulation')
-    parser.add_argument('-tTrans'        , nargs=1, required=False, metavar='FLOAT', type=float  , default=get_param_value('tTrans'        , defaultValues, [50.0]) , help='[[ NOT IMPLEMENTED ]] units: dt. Transient time to discard before measurements')
-    parser.add_argument('-tTotal'        , nargs=1, required=False, metavar='FLOAT', type=float  , default=get_param_value('tTotal'        , defaultValues, [200.0]), help='units: dt. Total simulation time')
+    parser.add_argument('-tTrans'        , nargs=1, required=False, metavar='FLOAT', type=float  , default=get_param_value('tTrans'        , defaultValues, [50.0]) , help='[[ NOT IMPLEMENTED ]] Transient duration to discard before measurements (same units as tTotal)')
+    parser.add_argument('-tTotal'        , nargs=1, required=False, metavar='FLOAT', type=float  , default=get_param_value('tTotal'        , defaultValues, [200.0]), help='Total simulation duration (model-time units)')
     parser.add_argument('-dt'            , nargs=1, required=False, metavar='FLOAT', type=float  , default=get_param_value('dt'            , defaultValues, [0.01]) , help='Integration time step')
     parser.add_argument('-v_tract'       , nargs=1, required=False, metavar='FLOAT', type=float  , default=get_param_value('v_tract'       , defaultValues, [5.0])  , help='conduction speed in tract')
     
@@ -81,9 +81,9 @@ def get_simParam_struct_validate_args(args):
         assert len(s.input_var_FL)  >0, '*** input_var_FL cannot be empty because input_type==mat'
         assert len(s.input_var_FMRI)>0, '*** input_var_FMRI cannot be empty because input_type==mat'
     else:
-        assert os.path.isdir(s.input_dir_rsfMRI)     , f'*** invalid input dir: {s.input_dir_rsfMRI}'
-        assert os.path.isdir(s.input_dir_fiberlength), f'*** invalid input dir: {s.input_dir_fiberlength}'
-        assert os.path.isdir(s.input_dir_fibernumber), f'*** invalid input dir: {s.input_dir_fibernumber}'
+        assert os.path.isdir(s.input_dir_FMRI), f'*** invalid input dir: {s.input_dir_FMRI}'
+        assert os.path.isdir(s.input_dir_FL), f'*** invalid input dir: {s.input_dir_FL}'
+        assert os.path.isdir(s.input_dir_FN), f'*** invalid input dir: {s.input_dir_FN}'
     return s
 
 """
