@@ -14,7 +14,7 @@ The code supports:
 - Multiple simulation trials
 - Heterogeneous oscillator parameters
 - Delayed coupling
-- Input connectomes in either **text (`.txt`)** or **MATLAB (`.mat`)** format
+- MATLAB (`.mat`) input connectomes
 - Optional normalization of coupling strength
 - Escape-time statistics across nodes and trials
 
@@ -25,6 +25,12 @@ The code supports:
 ```bash
 python escape_times.py [options]
 ```
+
+For a step-by-step walkthrough with reproducible smoke-test inputs, parameter guidance, and plotting examples, see [TUTORIAL.md](./TUTORIAL.md).
+The [`example_data/`](./example_data/) directory is the expected location for
+the real AAL MATLAB dataset used by
+[`plot_AAL_surface.ipynb`](./plot_AAL_surface.ipynb); the dataset itself is not
+included.
 
 To see all available options:
 
@@ -41,8 +47,8 @@ python escape_times.py -h
 | Option | Description |
 |------|------------|
 | `-ntrials INT` | Number of trials to repeat the simulation |
-| `-tTrans FLOAT` | Transient time to discard before measurements (units: dt, **not implemented**) |
-| `-tTotal FLOAT` | Total simulation time (units: dt) |
+| `-tTrans FLOAT` | Transient duration to discard before measurements (**not implemented**) |
+| `-tTotal FLOAT` | Total simulation duration (model-time units) |
 | `-dt FLOAT` | Integration time step |
 | `-v_tract FLOAT` | Conduction speed along tracts |
 
@@ -69,40 +75,15 @@ python escape_times.py -h
 
 ## Input Data
 
-Each input file (`txt` or `mat`) is supposed to have a subject code in its name.
-The code for controls is `ddd_d`, and the code for patients is `0ddd_d` (d = digit).
-The same code must be on the corresponding files for each matrix.
-
-For example, for `txt` input, we can have `FL_301_1.txt`,
-`FN_301_1.txt`, `FMRI_301_1.txt` as the names of the input files containing the fiber length (FL),
-fiber number (FN) and rs-fMRI (FMRI) matrices for the control subject identified by code `301_1`.
-
-Similarly for MAT-file inputs, but then only one file with all matrices inside is needed.
-E.g., `mats_301_1.mat` can be the file containing all matrices control subject `301_1`.
-Each matrix must be identified by their corresponding
-parameters: `input_var_FL`, `input_var_FN`, `input_var_FMRI`.
-
-The simulation can read connectome data in **two formats**:
-
-### Text (`.txt`) input
-
-```bash
--input_type txt
-```
-
-Required directories:
-- `-input_dir_FL` : fiber length matrices
-- `-input_dir_FN` : fiber number matrices
-- `-input_dir_FMRI` : rs-fMRI correlation matrices
-
-### MATLAB (`.mat`) input
-
-```bash
--input_type mat
-```
+Each MATLAB input file must include the subject code in its name. The code for
+controls is `ddd_d`, and the code for patients is `0ddd_d` (`d` = digit). Put
+one file per subject in a single directory; for example, `mats_301_1.mat` can
+contain the control subject's matrices. Each matrix must be identified by its
+corresponding variable-name option: `input_var_FL`, `input_var_FN`, and
+`input_var_FMRI`.
 
 Required directory:
-- `-input_dir_mat`
+- `-input_dir`
 
 Required variable names inside `.mat` files:
 - `-input_var_FL` : fiber length matrix
@@ -153,9 +134,8 @@ python escape_times.py \
     -lmbda 0.6 \
     -lmbda_range 0.06 \
     -Z_amp_escape 2.0 \
-    -input_type mat \
     -input_code S001 \
-    -input_dir_mat ./connectomes \
+    -input_dir ./connectomes \
     -input_var_FL FL \
     -input_var_FN FN \
     -input_var_FMRI FC \
